@@ -57,4 +57,4 @@ server.listen(8000, function() {
 	console.log(voter.vote());
 	voter.voteFlag = true;
 	console.log(voter.voteFlag);
-	*/
+  */
