@@ -28,4 +28,4 @@ socketio.listen(server).on('connection', function (socket) {
 	console.log(voter.vote());
 	voter.voteFlag = true;
 	console.log(voter.voteFlag);
-	*/
+  */
