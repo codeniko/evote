@@ -6,6 +6,9 @@
 var tls = require('tls');
 var fs = require('fs');
 
+var db = [{'ssn':123, 'name':'niko'},{'ssn':1234, 'name':'joyce'}];
+
+
 var options = {
 	key: fs.readFileSync('keys/cla-key.pem'),
 	cert: fs.readFileSync('keys/cla-cert.pem'),
@@ -20,9 +23,12 @@ var options = {
 var server = tls.createServer(options, function(socket) {
 	console.log('server connected',
 			socket.authorized ? 'authorized' : 'unauthorized');
-	socket.write("welcome!\n");
+	//socket.write("welcome!\n");
 	socket.setEncoding('utf8');
 	socket.pipe(socket);
+
+	var response = socket.read();
+	console.log(response);
 });
 server.listen(8000, function() {
 	console.log('server bound');
