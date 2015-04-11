@@ -1,4 +1,4 @@
-#!/usr/bin/node
+#!/usr/bin/node --enable-ssl3
 // #!/usr/local/bin/node
 
 //--enable-ssl3
@@ -7,14 +7,14 @@ var tls = require('tls');
 var fs = require('fs');
 
 var options = {
-	key: fs.readFileSync('cla-key.pem'),
-	cert: fs.readFileSync('cla-cert.pem'),
+	key: fs.readFileSync('keys/cla-key.pem'),
+	cert: fs.readFileSync('keys/cla-cert.pem'),
 
 	// This is necessary only if using the client certificate authentication.
 	requestCert: true,
 
 		// This is necessary only if the client uses the self-signed certificate.
-	//ca: [ fs.readFileSync('client-cert.pem') ]
+	ca: [ fs.readFileSync('keys/ctf-cert.pem') ]
 };
 
 var server = tls.createServer(options, function(socket) {
