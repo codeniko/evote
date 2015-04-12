@@ -3,7 +3,7 @@ function Voter(a, b, c) {
 	var name_ = b;
 	this.valNum;
 	this.idNum;
-	var vote_ = c;
+	this.vote = c;
 	this.voteFlag;	
 
 
@@ -13,10 +13,6 @@ function Voter(a, b, c) {
 
 	this.name = function() {
 		return name_;
-	}
-
-	this.vote = function() {
-		return vote_;
 	}
 };
 
