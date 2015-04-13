@@ -1,10 +1,10 @@
-function Voter(a, b, c) {
-	var ssn_ = a;
-	var name_ = b;
-	this.valNum;
-	this.idNum;
-	this.vote = c;
-	this.voteFlag;	
+function Voter(arg_ssn, arg_name) {
+	var ssn_ = arg_ssn;
+	var name_ = arg_name;
+	this.valNum = undefined;
+	this.idNum = undefined;
+	this.vote = undefined;
+	this.voteFlag = false;	
 
 
 	this.ssn = function() {

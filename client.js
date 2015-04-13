@@ -18,7 +18,7 @@ var rl = readline.createInterface({
 
 rl.question('Enter your name: ', function(name) {
 	  rl.question('Enter your SSN: ', function(ssn) {
-		  voter = new Voter(ssn, name, undefined);
+		  voter = new Voter(ssn, name);
 		  connectToVote();
 		  getCandidates();
 	  });
@@ -94,27 +94,36 @@ function connectToVote() {
 
 	// Listener for receiving data from CLA
 	cla_socket.addListener('data', function(data) {
-		var received = data.split('|');
-		if (received[0] == 'vNum') {
-			voter.valNum = received[1];
+		if (data === 'invalidVoter') {
+			rl.write('CLA was unable to validate you as a voter.\n');
+			rl.close();
+		} else if (data === 'votedAlready') {
+			rl.write('You have already voted.\n');
+			rl.close();
+		}
+
+		var dataSplit = data.split('|');
+		if (dataSplit[0] === 'vNum') {
+			voter.valNum = dataSplit[1];
 			voter.idNum = Math.random()*Math.pow(10, 17);
 
 			ctf_socket.write('vote|' + voter.valNum + '|' + voter.idNum + '|' +
 					voter.vote);
 		}
 	});
+	cla_socket.addListener('close', function() {
+		process.exit(1);
+	});
 
 	// Listener for sending/receiving data from CTF
 	ctf_socket.addListener('data', function(data) {
-		data = data + '';
-		var received = data.split('|');
-		if (received[0] === 'candidateList') {
+		var dataSplit = data.split('|');
+		if (dataSplit[0] === 'candidateList') {
 			//listener on receiving 'candidateList'
-			console.log('received candidate list');
-			received.shift();
-			candidates = received.slice();
+			dataSplit.shift();
+			candidates = dataSplit.slice();
 			askWhoToVoteFor();
-		} else if (received[0] === 'vote') {
+		} else if (dataSplit[0] === 'vote') {
 			//listener on sending 'vote'
 			rl.write('Your vote has been counted. Here\'s your ' +
 					'Identification number: '+ voter.idNum + '\n');

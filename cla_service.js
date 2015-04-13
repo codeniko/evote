@@ -1,20 +1,50 @@
-#!/usr/bin/node --enable-ssl3
-// #!/usr/local/bin/node
-
-//--enable-ssl3
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-tls = require('tls');
+var tls = require('tls');
 var fs = require('fs');
 var Voter = require('./Voter.js');
 var HashMap = require('hashmap');
-
-// hashes ssn to Voter
-var voterMap = new HashMap();
-
-var db = [{'ssn':123, 'name':'niko'},{'ssn':1234, 'name':'joyce'}];
+var readline = require('readline');
 
 
-var options = {
+var voterMap = new HashMap(); // hashes ssn to Voter
+var userDB = [];
+var validationNum;
+var voter;
+var client_socket;
+var ctf_socket;
+
+
+function loadUserDB() {
+	fs.readFile('data/users.db', function(err, data) {
+		console.log('Loading user database....');
+		if (err) throw err;
+		var lines = data.toString().split('\n');
+		for (i in lines) {
+			if (lines[i] != '') {
+				var l = lines[i].split('|');
+				userDB.push({'name':l[0], 'ssn':l[1]});
+			}
+		}
+		console.log('User database has been loaded.');
+	});
+}
+
+function validateVoter(voter) {
+	for (i in userDB) {
+		if (voter.name() === userDB[i].name && voter.ssn() === userDB[i].ssn) {
+			if (voterMap.get(voter.ssn()) === undefined) {
+				return 'valid';
+			}
+			return 'voted';
+		}
+	}
+	return 'invalid';
+}
+
+
+
+// =============Socket related code below================
+var client_options = {
 	key: fs.readFileSync('keys/cla-key.pem'),
 	cert: fs.readFileSync('keys/cla-cert.pem'),
 
@@ -25,8 +55,7 @@ var options = {
 	ca: [ fs.readFileSync('keys/client-cert.pem') ]
 };
 
-//code for CLA connecting to CTF
-var cla_ctf_options = {
+var ctf_options = {
 	key: fs.readFileSync('keys/cla-key.pem'),
 	cert: fs.readFileSync('keys/cla-cert.pem'),
 
@@ -37,54 +66,48 @@ var cla_ctf_options = {
 	ca: [ fs.readFileSync('keys/ctf-cert.pem') ]
 };
 
-
-var received;
-var validationNum;
-var voter;
-var voterSocket;
-var server = tls.createServer(options, function(socket) {
-  voterSocket = socket;
-	console.log('server connected',
+var server = tls.createServer(client_options, function(socket) {
+	client_socket = socket;
+	console.log('a client connected',
 			socket.authorized ? 'authorized' : 'unauthorized');
-	//socket.write("welcome!\n");
 	socket.setEncoding('utf8');
-  socket.addListener('data', function(data) {
-    //console.log(data);
-    received = data.split("|");
-    console.log(received);
-    if (received[0] == 'auth') {
-      voter = new Voter(received[1], received[2], -1);
-      validationNum = Math.random()*Math.pow(10, 17) + "";
-      console.log(validationNum);
-      voter.valNum = validationNum;
-      voterMap.set(received[1], voter);
-      cla_ctf_socket.write('vMapUnit|'+ voter.ssn()+ '|' + voter.name() + "|" +
-          voter.valNum);
-      
-    }
-    //console.log(socket);
-  });
-	socket.pipe(socket);
+	socket.addListener('data', function(data) {
+		var dataSplit = data.split('|');
+		if (dataSplit[0] === 'auth') {
+			voter = new Voter(dataSplit[1], dataSplit[2]);
+			var isValidVoter = validateVoter(voter);
+			if (isValidVoter === 'valid') {
+				validationNum = Math.random()*Math.pow(10, 17);
+				voter.valNum = validationNum;
+				voterMap.set(dataSplit[1], voter);
 
-	//var response = socket.read();
-//	console.log(response);
+				// Send this record of validation to CTF
+				ctf_socket.write('vMapUnit|'+ voter.ssn()+ '|' + voter.name() + '|' +
+						voter.valNum);
+			} else if (isValidVoter === 'invalid') {
+				client_socket.end('invalidVoter');
+			} else {
+				client_socket.end('votedAlready');
+			}
+		}
+	});
+	socket.pipe(socket);
 });
+
 
 server.listen(8000, function() {
-	console.log('server bound');
+	console.log('CLA service listening on port 8000 for Clients');
 });
 
+ctf_socket = tls.connect(8001, ctf_options, function() {});
+ctf_socket.setEncoding('utf8');
+ctf_socket.addListener('data', function(data) {
 
-
-
-
-var cla_ctf_socket = tls.connect(8001, cla_ctf_options, function() {
+	if (data === 'done') {
+		console.log('Received confirmation from CTF that records have' +
+				' been updated. Sending validation to Voter: '+voter.valNum);
+		client_socket.write('vNum|' + voter.valNum);
+	}
 });
-  cla_ctf_socket.addListener('data', function(data) {
-     
-    if (data == 'done') {
-      console.log("cla received done from ctf");
-      voterSocket.write('vNum|' + voter.valNum);
-    }
-    //console.log(socket);
-  });
+
+loadUserDB();

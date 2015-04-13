@@ -1,29 +1,29 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-tls = require('tls');
+var tls = require('tls');
 var fs = require('fs');
 var Voter = require('./Voter.js');
 var HashMap = require('hashmap');
 var faker = require('./faker.js');
 
-// hashes ssn to Voter
-var voterMap = new HashMap();
-var voteList = [];
+var voterMap = new HashMap(); // hashes validation numbers to Voters
+var voteList = []; // contains vote tallies
 
 fs.readFile('data/candidates.db', function(err, data) {
-  if (err) throw err;
-  var array = data.toString().split("\n");
-  for (i in array) {
-    if (array[i] != "") {
-      voteList.push([array[i]]);
-    }
-  }
-  console.log(voteList);
+	if (err) throw err;
+	var array = data.toString().split('\n');
+	for (i in array) {
+		if (array[i] != '') {
+			voteList.push([array[i]]);
+		}
+	}
+	console.log(voteList);
 });
 
-console.log(faker.name.findName());
 
 
-var options = {
+
+// =============Socket related code below==============
+var cla_options = {
 	key: fs.readFileSync('keys/ctf-key.pem'),
 	cert: fs.readFileSync('keys/ctf-cert.pem'),
 
@@ -34,7 +34,7 @@ var options = {
 	ca: [ fs.readFileSync('keys/cla-cert.pem') ]
 };
 
-var ctf_options = {
+var client_options = {
 	key: fs.readFileSync('keys/ctf-key.pem'),
 	cert: fs.readFileSync('keys/ctf-cert.pem'),
 
@@ -46,36 +46,31 @@ var ctf_options = {
 };
 
 
-var server = tls.createServer(options, function(socket) {
-	console.log('server connected',
+var server = tls.createServer(cla_options, function(socket) {
+	console.log('CLA service connected to us (CTF) ',
 			socket.authorized ? 'authorized' : 'unauthorized');
-	//socket.write("welcome!\n");
-	socket.setEncoding('utf8');
-  socket.addListener('data', function(data) {
-    //console.log(data);
-    received = data.split("|");
-    if (received[0] == 'vMapUnit') {
-      var voter = new Voter(received[1], received[2], -1);
-      voter.valNum = received[3];
-      voterMap.set(received[3], voter);
-
-      socket.write('done');
-    }
-    //console.log(socket);
-  });
-	socket.pipe(socket);
-
-	//var response = socket.read();
-//	console.log(response);
-});
-
-var voterServer = tls.createServer(ctf_options, function(socket) {
-	console.log('server connected',
-			socket.authorized ? 'authorized' : 'unauthorized');
-	//socket.write("welcome!\n");
 	socket.setEncoding('utf8');
 	socket.addListener('data', function(data) {
-		//console.log(data);
+		var dataSplit = data.split('|');
+		//add voter record with validation num to hashmap from CLA
+		if (dataSplit[0] === 'vMapUnit') {
+			var voter = new Voter(dataSplit[1], dataSplit[2]);
+			voter.valNum = dataSplit[3];
+			voterMap.set(dataSplit[3], voter);
+
+			socket.write('done');
+			console.log('CLA updated our validation map, validation number: ' +
+					voter.valNum+' -> '+voter.name());
+		}
+	});
+	socket.pipe(socket);
+});
+
+var voterServer = tls.createServer(client_options, function(socket) {
+	console.log('Client connected to us (CTF) ',
+			socket.authorized ? 'authorized' : 'unauthorized');
+	socket.setEncoding('utf8');
+	socket.addListener('data', function(data) {
 		if (data === 'getCandidateList') {
 			var candList = undefined;
 			for (candIndex in voteList) {
@@ -83,40 +78,39 @@ var voterServer = tls.createServer(ctf_options, function(socket) {
 					? candList = voteList[candIndex][0]
 					: candList = candList + '|' + voteList[candIndex][0];
 			}
-			console.log("sending candidate list: "+candList);
+			console.log('Received candidate list request from Client.');
 			socket.write('candidateList|' + candList);
+			return;
 		}
 
-		received = data.split("|");
-		console.log(received);
-		if (received[0] == 'vote') {
-			if (voterMap.get(received[1]) != undefined) {
-				var voter = voterMap.get(received[1]);
+		var dataSplit = data.split('|');
+		if (dataSplit[0] === 'vote') {
+			var voter = voterMap.get(dataSplit[1]);
+			if (voter != undefined && voter.voteFlag === false) {
 				voter.voteFlag = true;
-				voter.idNum = received[2];
-				voter.vote = received[3];
+				voter.idNum = dataSplit[2];
+				voter.vote = dataSplit[3];
 				for (var i = 0 ; i < voteList.length; i++) {
-					if (voteList[i][0] == voter.vote) {
+					if (voteList[i][0] === voter.vote) {
 						voteList[i].push(voter.idNum);
 					}
 				}
+				console.log(voteList);
+				console.log('Client ID '+voter.idNum+' voted for '+voter.vote);
+			} else {
+				console.log('Received a vote from a false validation number or' +
+						' from someone who already voted. Not counting it.');
 			}
-			console.log(voteList);
 		}
-
-		//console.log(socket);
 	});
 	socket.pipe(socket);
-
-	//var response = socket.read();
-	//	console.log(response);
 });
 
 
 server.listen(8001, function() {
-	console.log('server bound 8001');
+	console.log('CTF service listening on port 8001 for CLA');
 });
 
 voterServer.listen(8002, function() {
-	console.log('server bound 8002');
+	console.log('CTF service listening on port 8002 for Clients');
 });
