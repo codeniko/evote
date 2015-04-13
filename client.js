@@ -1,65 +1,128 @@
-#!/usr/bin/node
-
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 var tls = require('tls');
 var fs = require('fs');
 var Voter = require('./Voter.js');
-
-var options = {
-	// These are necessary only if using the client certificate authentication
-	key: fs.readFileSync('keys/client-key.pem'),
-	cert: fs.readFileSync('keys/client-cert.pem'),
-
-	// This is necessary only if the server uses the self-signed certificate
-	ca: [ fs.readFileSync('keys/cla-cert.pem') ]
-};
-
-var ctf_options = {
-	// These are necessary only if using the client certificate authentication
-	key: fs.readFileSync('keys/client-key.pem'),
-	cert: fs.readFileSync('keys/client-cert.pem'),
-
-	// This is necessary only if the server uses the self-signed certificate
-	ca: [ fs.readFileSync('keys/ctf-cert.pem') ]
-};
+var readline = require('readline');
 
 
-// connect to cla
+var ctf_socket;
+var cla_socket;
 var voter;
-var socket = tls.connect(8000, options, function() {
-  console.log(socket);
-	console.log('client connected',
-			socket.authorized ? 'authorized' : 'unauthorized');
-  voter = new Voter("1234567890", "joyce", "bush"); 
-  socket.write('auth|' + voter.ssn() + '|' + voter.name());
-	//process.stdin.pipe(socket);
-	//process.stdin.resume();
+var candidates;
+var rl = readline.createInterface({
+	  input: process.stdin,
+	  output: process.stdout
 });
 
-// connect to ctf
-var ctf_socket = tls.connect(8002, ctf_options, function() {
+
+
+var qname = "Enter your name: ";
+var qssn = "Enter your SSN: ";
+rl.question(qname, function(name) {
+	  rl.question(qssn, function(ssn) {
+		  voter = new Voter(ssn, name, undefined);
+		  connectToVote();
+		  getCandidates();
+	  });
 });
 
-var received;
-socket.addListener('data', function(data) {
-  received = data.split("|");
-  console.log(">>>>");
-  console.log(data);
-  if (received[0] == 'vNum') {
-    console.log(received);
-    voter.valNum = received[1];
-    voter.idNum = Math.random()*Math.pow(10, 16);
-    console.log("atempting to send to ctf")
-    ctf_socket.write('vote|' + voter.valNum + '|' + voter.idNum + '|' +
-        voter.vote);
-  }
-});
+function askWhoToVoteFor() {
+	rl.write('\nYou can vote for the following candidates:\n');
+	for (var i = 0; i < candidates.length; i++) {
+		rl.write(candidates[i]+'\n');
+	}
+	rl.write('\n');
+	var qvote = "Enter name of candidate you're voting for: ";
+	rl.question(qvote, function(candidate) {
+		voter.vote = candidate;
+		validateCandidate(candidate);
+		authorize();
+	});	  
+}
 
-socket.setEncoding('utf8');
-/*socket.on('data', function(data) {
-	console.log(data);
-});
+function validateCandidate(candidate) {
+	var valid = false;
+	if (candidate != undefined) {
+		for (var i = 0; i < candidates.length; i++) {
+			if (candidate === candidates[i]) {
+				valid = true;
+			}
+		}
+	}
+	if (!valid) {
+		rl.write('Invalid candidate entered.\n');
+		rl.close();
+		process.exit(1);
+	}
+}
 
-socket.on('end', function() {
-	server.close();
-});*/
+
+
+// ===========Socket related code below====================
+function getCandidates() {
+	ctf_socket.write('getCandidateList');
+}
+
+function authorize() {
+	cla_socket.write('auth|' + voter.ssn() + '|' + voter.name());
+}
+
+function connectToVote() {
+	var cla_options = {
+		// These are necessary only if using the client certificate authentication
+		key: fs.readFileSync('keys/client-key.pem'),
+		cert: fs.readFileSync('keys/client-cert.pem'),
+
+			// This is necessary only if the server uses the self-signed certificate
+		ca: [ fs.readFileSync('keys/cla-cert.pem') ]
+	};
+
+
+	var ctf_options = {
+		// These are necessary only if using the client certificate authentication
+		key: fs.readFileSync('keys/client-key.pem'),
+		cert: fs.readFileSync('keys/client-cert.pem'),
+
+			// This is necessary only if the server uses the self-signed certificate
+		ca: [ fs.readFileSync('keys/ctf-cert.pem') ]
+	};
+
+
+	// Connect to CTF
+	ctf_socket = tls.connect(8002, ctf_options, function() {});
+
+	// Connect to CLA
+	cla_socket = tls.connect(8000, cla_options, function() {});
+
+	// Listener for receiving data from CLA
+	cla_socket.addListener('data', function(data) {
+		var received = data.split("|");
+		if (received[0] == 'vNum') {
+			voter.valNum = received[1];
+			voter.idNum = Math.random()*Math.pow(10, 17);
+
+			ctf_socket.write('vote|' + voter.valNum + '|' + voter.idNum + '|' +
+					voter.vote);
+		}
+	});
+
+	// Listener for receiving data from CTF
+	ctf_socket.addListener('data', function(data) {
+		data = data + '';
+		var received = data.split("|");
+		if (received[0] === 'candidateList') {
+			console.log('received candidate list');
+			received.shift();
+			candidates = received.slice();
+			askWhoToVoteFor();
+		} else if (received[0] === 'vote') {
+			rl.write('Your vote has been counted. Here\'s your ' +
+					'Identification number: '+ voter.idNum + '\n');
+			rl.close();
+			process.exit(0);
+		}
+	});
+
+	cla_socket.setEncoding('utf8');
+	ctf_socket.setEncoding('utf8');
+}

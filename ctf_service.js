@@ -1,7 +1,3 @@
-#!/usr/bin/node --enable-ssl3
-// #!/usr/local/bin/node
-
-//--enable-ssl3
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 tls = require('tls');
 var fs = require('fs');
@@ -78,30 +74,42 @@ var voterServer = tls.createServer(ctf_options, function(socket) {
 			socket.authorized ? 'authorized' : 'unauthorized');
 	//socket.write("welcome!\n");
 	socket.setEncoding('utf8');
-  socket.addListener('data', function(data) {
-    //console.log(data);
-    received = data.split("|");
-    console.log(received);
-    if (received[0] == 'vote') {
-      if (voterMap.get(received[1]) != undefined) {
-        var voter = voterMap.get(received[1]);
-        voter.voteFlag = true;
-        voter.idNum = received[2];
-        voter.vote = received[3];
-        for (var i = 0 ; i < voteList.length; i++) {
-          if (voteList[i][0] == voter.vote) {
-            voteList[i].push(voter.idNum);
-          }
-        }
-      }
-      console.log(voteList);
-    }
-    //console.log(socket);
-  });
+	socket.addListener('data', function(data) {
+		//console.log(data);
+		if (data === 'getCandidateList') {
+			var candList = undefined;
+			for (candIndex in voteList) {
+				candList = (candList === undefined)
+					? candList = voteList[candIndex][0]
+					: candList = candList + '|' + voteList[candIndex][0];
+			}
+			console.log("sending candidate list: "+candList);
+			socket.write('candidateList|' + candList);
+		}
+
+		received = data.split("|");
+		console.log(received);
+		if (received[0] == 'vote') {
+			if (voterMap.get(received[1]) != undefined) {
+				var voter = voterMap.get(received[1]);
+				voter.voteFlag = true;
+				voter.idNum = received[2];
+				voter.vote = received[3];
+				for (var i = 0 ; i < voteList.length; i++) {
+					if (voteList[i][0] == voter.vote) {
+						voteList[i].push(voter.idNum);
+					}
+				}
+			}
+			console.log(voteList);
+		}
+
+		//console.log(socket);
+	});
 	socket.pipe(socket);
 
 	//var response = socket.read();
-//	console.log(response);
+	//	console.log(response);
 });
 
 

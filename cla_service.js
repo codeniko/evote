@@ -54,7 +54,7 @@ var server = tls.createServer(options, function(socket) {
     console.log(received);
     if (received[0] == 'auth') {
       voter = new Voter(received[1], received[2], -1);
-      validationNum = Math.random()*Math.pow(10, 16) + "";
+      validationNum = Math.random()*Math.pow(10, 17) + "";
       console.log(validationNum);
       voter.valNum = validationNum;
       voterMap.set(received[1], voter);
