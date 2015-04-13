@@ -7,10 +7,24 @@ tls = require('tls');
 var fs = require('fs');
 var Voter = require('./Voter.js');
 var HashMap = require('hashmap');
+var faker = require('./faker.js');
 
 // hashes ssn to Voter
 var voterMap = new HashMap();
-var voteList = [["bush"], ["gore"], ["obama"], ["niko"]];
+var voteList = [];
+
+fs.readFile('data/candidates.db', function(err, data) {
+  if (err) throw err;
+  var array = data.toString().split("\n");
+  for (i in array) {
+    if (array[i] != "") {
+      voteList.push([array[i]]);
+    }
+  }
+  console.log(voteList);
+});
+
+console.log(faker.name.findName());
 
 
 var options = {
