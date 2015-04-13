@@ -16,10 +16,8 @@ var rl = readline.createInterface({
 
 
 
-var qname = "Enter your name: ";
-var qssn = "Enter your SSN: ";
-rl.question(qname, function(name) {
-	  rl.question(qssn, function(ssn) {
+rl.question('Enter your name: ', function(name) {
+	  rl.question('Enter your SSN: ', function(ssn) {
 		  voter = new Voter(ssn, name, undefined);
 		  connectToVote();
 		  getCandidates();
@@ -32,7 +30,7 @@ function askWhoToVoteFor() {
 		rl.write(candidates[i]+'\n');
 	}
 	rl.write('\n');
-	var qvote = "Enter name of candidate you're voting for: ";
+	var qvote = 'Enter name of candidate you\'re voting for: ';
 	rl.question(qvote, function(candidate) {
 		voter.vote = candidate;
 		validateCandidate(candidate);
@@ -73,7 +71,7 @@ function connectToVote() {
 		key: fs.readFileSync('keys/client-key.pem'),
 		cert: fs.readFileSync('keys/client-cert.pem'),
 
-			// This is necessary only if the server uses the self-signed certificate
+		// This is necessary only if the server uses the self-signed certificate
 		ca: [ fs.readFileSync('keys/cla-cert.pem') ]
 	};
 
@@ -83,7 +81,7 @@ function connectToVote() {
 		key: fs.readFileSync('keys/client-key.pem'),
 		cert: fs.readFileSync('keys/client-cert.pem'),
 
-			// This is necessary only if the server uses the self-signed certificate
+		// This is necessary only if the server uses the self-signed certificate
 		ca: [ fs.readFileSync('keys/ctf-cert.pem') ]
 	};
 
@@ -96,7 +94,7 @@ function connectToVote() {
 
 	// Listener for receiving data from CLA
 	cla_socket.addListener('data', function(data) {
-		var received = data.split("|");
+		var received = data.split('|');
 		if (received[0] == 'vNum') {
 			voter.valNum = received[1];
 			voter.idNum = Math.random()*Math.pow(10, 17);
@@ -106,16 +104,18 @@ function connectToVote() {
 		}
 	});
 
-	// Listener for receiving data from CTF
+	// Listener for sending/receiving data from CTF
 	ctf_socket.addListener('data', function(data) {
 		data = data + '';
-		var received = data.split("|");
+		var received = data.split('|');
 		if (received[0] === 'candidateList') {
+			//listener on receiving 'candidateList'
 			console.log('received candidate list');
 			received.shift();
 			candidates = received.slice();
 			askWhoToVoteFor();
 		} else if (received[0] === 'vote') {
+			//listener on sending 'vote'
 			rl.write('Your vote has been counted. Here\'s your ' +
 					'Identification number: '+ voter.idNum + '\n');
 			rl.close();
