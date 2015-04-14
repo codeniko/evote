@@ -17,7 +17,7 @@ var ctf_socket;
 function loadUserDB() {
 	fs.readFile('data/users.db', function(err, data) {
 		console.log('Loading user database....');
-		if (err) throw err;
+		if (err) console.log(err);
 		var lines = data.toString().split('\n');
 		for (i in lines) {
 			if (lines[i] != '') {
