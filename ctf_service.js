@@ -101,6 +101,7 @@ var voterServer = tls.createServer(client_options, function(socket) {
 				console.log('Received a vote from a false validation number or' +
 						' from someone who already voted. Not counting it.');
 			}
+      generateHTMLPage();
 		}
 	});
 	socket.pipe(socket);
@@ -114,3 +115,34 @@ server.listen(8001, function() {
 voterServer.listen(8002, function() {
 	console.log('CTF service listening on port 8002 for Clients');
 });
+
+function generateHTMLPage() {
+  console.log("hellooooo");
+  console.log(voteList);
+  var html = "<!doctype html><html><head></head><body>";
+  var candidate = "";
+  var voters = "";
+  for (var i = 0; i < voteList.length; i++) {
+    for (var j = 0; j < voteList[i].length; j++) {
+      if (j == 0) {
+        candidate = voteList[i][j];
+      } else if (j == voteList[i].length - 1) {
+        voters = voters + voteList[i][j];
+      } else {
+        voters = voters + voteList[i][j] + ", "; 
+      }
+    }
+    if (voters != "") {
+      html = html + "<h1>" + candidate + "</h1><p>Voter IDs: " + voters + "</p>";
+    } else {
+      html = html + "<h1>" + candidate + "</h1><p>No votes</p>";
+    }
+    console.log(candidate);
+    console.log(voters);
+    candidate = "";
+    voters = "";
+  }
+  html = html + "</body></html>";
+  fs.writeFile("results.html", html, function (err) {
+  });
+}
