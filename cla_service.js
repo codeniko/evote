@@ -8,10 +8,8 @@ var readline = require('readline');
 
 var voterMap = new HashMap(); // hashes ssn to Voter
 var userDB = [];
-var validationNum;
-var voter;
-var client_socket;
 var ctf_socket;
+var voters = []; // contains active voter connections
 
 
 function loadUserDB() {
@@ -41,6 +39,15 @@ function validateVoter(voter) {
 	return 'invalid';
 }
 
+// Find the voter and its socket object based on validation number
+function findVoterConnObj(valNum) {
+	for (i in voters) {
+		if (voters[i].voter.valNum == valNum) {
+			return voters[i];
+		}
+	}
+	return undefined;
+}
 
 
 // =============Socket related code below================
@@ -67,7 +74,6 @@ var ctf_options = {
 };
 
 var server = tls.createServer(client_options, function(socket) {
-	client_socket = socket;
 	console.log('a client connected',
 			socket.authorized ? 'authorized' : 'unauthorized');
 	socket.setEncoding('utf8');
@@ -75,19 +81,22 @@ var server = tls.createServer(client_options, function(socket) {
 		var dataSplit = data.split('|');
 		if (dataSplit[0] === 'auth') {
 			voter = new Voter(dataSplit[1], dataSplit[2]);
+			voter.valNum = Math.random()*Math.pow(10, 17);
 			var isValidVoter = validateVoter(voter);
 			if (isValidVoter === 'valid') {
-				validationNum = Math.random()*Math.pow(10, 17);
-				voter.valNum = validationNum;
+				var connObj = {};
+				connObj.voter = voter;
+				connObj.socket = socket;
+				voters.unshift(connObj); 
 				voterMap.set(dataSplit[1], voter);
 
 				// Send this record of validation to CTF
 				ctf_socket.write('vMapUnit|'+ voter.ssn()+ '|' + voter.name() + '|' +
 						voter.valNum);
 			} else if (isValidVoter === 'invalid') {
-				client_socket.end('invalidVoter');
+				socket.end('invalidVoter');
 			} else {
-				client_socket.end('votedAlready');
+				socket.end('votedAlready');
 			}
 		}
 	});
@@ -102,10 +111,14 @@ server.listen(8000, function() {
 ctf_socket = tls.connect(8001, ctf_options, function() {});
 ctf_socket.setEncoding('utf8');
 ctf_socket.addListener('data', function(data) {
-	if (data === 'done') {
-		console.log('Received confirmation from CTF that records have' +
-				' been updated. Sending validation to Voter: '+voter.valNum);
-		client_socket.write('vNum|' + voter.valNum);
+	var dataSplit = data.split('|');
+	if (dataSplit[0] === 'done') {
+		var connObj = findVoterConnObj(parseInt(dataSplit[1]));
+		if (connObj != undefined) {
+			console.log('Received confirmation from CTF that records have' +
+					' been updated. Sending validation to Voter: '+ connObj.voter.valNum);
+			connObj.socket.write('vNum|' + connObj.voter.valNum);
+		}
 	}
 });
 ctf_socket.addListener('close', function(data) {

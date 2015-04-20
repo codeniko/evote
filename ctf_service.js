@@ -56,14 +56,15 @@ var server = tls.createServer(cla_options, function(socket) {
 			socket.authorized ? 'authorized' : 'unauthorized');
 	socket.setEncoding('utf8');
 	socket.addListener('data', function(data) {
+		console.log("LISTENER: "+ data);
 		var dataSplit = data.split('|');
 		//add voter record with validation num to hashmap from CLA
 		if (dataSplit[0] === 'vMapUnit') {
 			var voter = new Voter(dataSplit[1], dataSplit[2]);
 			voter.valNum = dataSplit[3];
-			voterMap.set(dataSplit[3], voter);
+			voterMap.set(voter.valNum, voter);
 
-			socket.write('done');
+			socket.write('done|'+voter.valNum);
 			console.log('CLA updated our validation map, validation number: ' +
 					voter.valNum+' -> '+voter.name());
 		}
