@@ -114,6 +114,9 @@ function connectToVote() {
 	cla_socket.addListener('close', function() {
 		process.exit(1);
 	});
+	ctf_socket.addListener('close', function() {
+		process.exit(0);
+	});
 
 	// Listener for sending/receiving data from CTF
 	ctf_socket.addListener('data', function(data) {

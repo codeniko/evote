@@ -102,12 +102,14 @@ server.listen(8000, function() {
 ctf_socket = tls.connect(8001, ctf_options, function() {});
 ctf_socket.setEncoding('utf8');
 ctf_socket.addListener('data', function(data) {
-
 	if (data === 'done') {
 		console.log('Received confirmation from CTF that records have' +
 				' been updated. Sending validation to Voter: '+voter.valNum);
 		client_socket.write('vNum|' + voter.valNum);
 	}
+});
+ctf_socket.addListener('close', function(data) {
+	process.exit(0);
 });
 
 loadUserDB();

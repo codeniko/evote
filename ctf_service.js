@@ -4,9 +4,14 @@ var fs = require('fs');
 var Voter = require('./Voter.js');
 var HashMap = require('hashmap');
 var faker = require('./faker.js');
+var readline = require('readline');
 
 var voterMap = new HashMap(); // hashes validation numbers to Voters
 var voteList = []; // contains vote tallies
+var rl = readline.createInterface({
+	input: process.stdin,
+	output: process.stdout
+});
 
 fs.readFile('data/candidates.db', function(err, data) {
 	if (err) throw err;
@@ -101,7 +106,6 @@ var voterServer = tls.createServer(client_options, function(socket) {
 				console.log('Received a vote from a false validation number or' +
 						' from someone who already voted. Not counting it.');
 			}
-      generateHTMLPage();
 		}
 	});
 	socket.pipe(socket);
@@ -117,32 +121,45 @@ voterServer.listen(8002, function() {
 });
 
 function generateHTMLPage() {
-  console.log("hellooooo");
-  console.log(voteList);
-  var html = "<!doctype html><html><head></head><body>";
-  var candidate = "";
-  var voters = "";
+  var html = '<!doctype html><html><head></head><body>';
+  var html_body = '';
+  var candidate = undefined;
+  var voters = '';
+  var winner = undefined;
+  var winnerVotes = -1;
   for (var i = 0; i < voteList.length; i++) {
     for (var j = 0; j < voteList[i].length; j++) {
       if (j == 0) {
         candidate = voteList[i][j];
+		  if (voteList[i].length - 1 > winnerVotes) {
+				winner = candidate;
+				winnerVotes = voteList[i].length - 1;
+		  }
       } else if (j == voteList[i].length - 1) {
         voters = voters + voteList[i][j];
       } else {
-        voters = voters + voteList[i][j] + ", "; 
+        voters = voters + voteList[i][j] + ', '; 
       }
     }
-    if (voters != "") {
-      html = html + "<h1>" + candidate + "</h1><p>Voter IDs: " + voters + "</p>";
+    if (voters != '') {
+      html_body = html_body + '<h2>' + candidate + '</h2><p>Voter IDs: ' + voters + '</p>';
     } else {
-      html = html + "<h1>" + candidate + "</h1><p>No votes</p>";
+      html_body = html_body + '<h2>' + candidate + '</h2><p>No votes</p>';
     }
-    console.log(candidate);
-    console.log(voters);
-    candidate = "";
-    voters = "";
+    candidate = undefined;
+    voters = '';
   }
-  html = html + "</body></html>";
-  fs.writeFile("results.html", html, function (err) {
-  });
+  html_winner = '<h1>WINNER::: '+winner+' ['+winnerVotes+' votes]'+'</h1>';
+  html = html + html_winner + html_body + '</body></html>';
+  fs.writeFileSync('results.html', html);
 }
+
+
+// When input received from stdin, shutdown voting.
+rl.question('', function(line) {
+	server.close();
+	voterServer.close();
+	generateHTMLPage();
+	rl.write('Voting is complete, results are tallied and posted.\n');
+	process.exit(0);
+});
