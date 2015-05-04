@@ -98,7 +98,7 @@ var voterServer = tls.createServer(client_options, function(socket) {
 				voter.vote = dataSplit[3];
 				for (var i = 0 ; i < voteList.length; i++) {
 					if (voteList[i][0] === voter.vote) {
-						voteList[i].push(voter.idNum);
+						voteList[i].push({'id':voter.idNum, 'name':voter.name()});
 					}
 				}
 				console.log(voteList);
@@ -128,6 +128,7 @@ function generateHTMLPage() {
   var voters = '';
   var winner = undefined;
   var winnerVotes = -1;
+  var voterNames = '';
   for (var i = 0; i < voteList.length; i++) {
     for (var j = 0; j < voteList[i].length; j++) {
       if (j == 0) {
@@ -137,9 +138,11 @@ function generateHTMLPage() {
 				winnerVotes = voteList[i].length - 1;
 		  }
       } else if (j == voteList[i].length - 1) {
-        voters = voters + voteList[i][j];
+        voters = voters + voteList[i][j].id;
+		  //voterNames = voterNames + voteList[i][j].name + ' ';
       } else {
-        voters = voters + voteList[i][j] + ', '; 
+        voters = voters + voteList[i][j].id + ', '; 
+		  //voterNames = voterNames + voteList[i][j].name + ' ';
       }
     }
     if (voters != '') {
@@ -151,7 +154,9 @@ function generateHTMLPage() {
     voters = '';
   }
   html_winner = '<h1>WINNER::: '+winner+' ['+winnerVotes+' votes]'+'</h1>';
-  html = html + html_winner + html_body + '</body></html>';
+  html = html + html_winner + html_body;
+ // html = html + '<br><br> The following is a list of all people that voted: <br>' + voterNames + '</body></html>';
+  html = html + '</body></html>'; //uncomment if showing names list
   fs.writeFileSync('results.html', html);
 }
 
